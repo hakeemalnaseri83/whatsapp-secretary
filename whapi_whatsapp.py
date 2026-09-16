@@ -24,20 +24,32 @@ from llm import generate_reply
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="WhatsApp AI Secretary (Whapi)")
 
-# Whapi base that resolves/works on Render for this account
-WHAPI = "https://api.whapi.cloud"
+# Whapi base hosts - try each until one resolves/works on the host
+WHAPI_BASES = ["https://api.whapi.cloud", "https://gate.whapi.cloud", "https://whapi.cloud"]
 
 
 def _headers() -> dict:
     return {"Authorization": f"Bearer {CONFIG.whapi_token}"}
 
 
+def _call(method: str, path: str, json_body=None, timeout: int = 40):
+    """Tries every Whapi base host; returns the first successful response."""
+    last: Exception = Exception("no whapi base attempted")
+    for base in WHAPI_BASES:
+        try:
+            r = httpx.request(method, f"{base}{path}", json=json_body,
+                              headers=_headers(), timeout=timeout)
+            if r.status_code < 300:
+                return r
+            last = Exception(f"HTTP {r.status_code} from {base}: {r.text[:120]}")
+        except Exception as e:  # DNS / connect errors -> try next host
+            last = e
+    raise last
+
+
 def _send_text(to: str, text: str) -> None:
     try:
-        r = httpx.post(f"{WHAPI}/messages/text",
-                       json={"to": str(to), "body": text},
-                       headers=_headers(), timeout=40)
-        r.raise_for_status()
+        r = _call("POST", "/messages/text", json_body={"to": str(to), "body": text})
         logging.info("sent text to %s -> %s", to, r.status_code)
     except Exception as e:
         logging.warning("send_text failed: %s", e)
@@ -48,8 +60,7 @@ def _transcribe(media_id: str) -> str:
     if not CONFIG.openai_key:
         return ""
     try:
-        r = httpx.get(f"{WHAPI}/media/{media_id}", headers=_headers(), timeout=120)
-        r.raise_for_status()
+        r = _call("GET", f"/media/{media_id}", timeout=120)
         files = {"file": ("voice.ogg", io.BytesIO(r.content), "audio/ogg"),
                  "model": (None, "whisper-1")}
         t = httpx.post("https://api.openai.com/v1/audio/transcriptions",
@@ -84,10 +95,9 @@ def _synthesize(text: str) -> bytes | None:
 def _send_audio(to: str, mp3: bytes) -> None:
     uri = "data:audio/mp3;base64," + base64.b64encode(mp3).decode()
     try:
-        r = httpx.post(f"{WHAPI}/messages/audio",
-                       json={"to": str(to), "media": uri, "mime_type": "audio/mpeg"},
-                       headers=_headers(), timeout=90)
-        r.raise_for_status()
+        r = _call("POST", "/messages/audio",
+                  json_body={"to": str(to), "media": uri, "mime_type": "audio/mpeg"},
+                  timeout=90)
         logging.info("sent audio to %s -> %s", to, r.status_code)
     except Exception as e:
         logging.warning("send_audio failed: %s", e)
