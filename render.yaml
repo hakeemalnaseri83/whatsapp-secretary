@@ -1,0 +1,23 @@
+# Render Blueprint: WhatsApp voice secretary
+# Deploy from the repository root (backend folder) to get a stable HTTPS URL.
+services:
+  - type: web
+    name: whatsapp-secretary
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: WHAPI_TOKEN
+        sync: false      # set in Render dashboard (secret)
+      - key: OPENAI_API_KEY
+        sync: false      # set in Render dashboard (secret)
+      - key: LANGUAGE
+        value: ar
+      - key: TONE
+        value: friendly
+      - key: VOICE_REPLIES
+        value: "on"
+      - key: GEMINI_API_KEY
+        sync: false
