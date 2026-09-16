@@ -4,9 +4,13 @@ Supports OpenAI (gpt-4o-mini) and Google Gemini (gemini-2.0-flash),
 selected via AI_PROVIDER in .env. Always responds in the configured language
 with the configured tone.
 """
+import logging
+
 import httpx
 
 from config import CONFIG
+
+logging.basicConfig(level=logging.INFO)
 
 
 def _system_prompt() -> str:
@@ -50,7 +54,8 @@ def generate_reply(caller_transcript: str, caller_number: str) -> str:
             "openai": _openai(_system_prompt(), user_msg),
             "gemini": _gemini(_system_prompt(), user_msg),
         }[CONFIG.ai_provider]
-    except Exception:
+    except Exception as e:
+        logging.warning("LLM generate_reply failed: %r", e)
         return fallback
 
 
