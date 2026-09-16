@@ -30,6 +30,8 @@ class Config:
     # Whapi.Cloud (WhatsApp assistant)
     whapi_token: str = os.getenv("WHAPI_TOKEN", "")
     voice_replies: bool = _enabled(os.getenv("VOICE_REPLIES"), True)
+    # Debug: on failure, put the LLM error text into the reply (for diagnosing)
+    debug: bool = _enabled(os.getenv("DEBUG"), True)
 
     # Optional: write every handled call transcript into this file (JSON lines)
     transcript_file: str = os.getenv("TRANSCRIPT_FILE", "transcripts.jsonl")

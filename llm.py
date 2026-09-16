@@ -56,6 +56,8 @@ def generate_reply(caller_transcript: str, caller_number: str) -> str:
         }[CONFIG.ai_provider]
     except Exception as e:
         logging.warning("LLM generate_reply failed: %r", e)
+        if CONFIG.debug:
+            return f"[LLM error] {e}"
         return fallback
 
 
