@@ -24,8 +24,8 @@ from llm import generate_reply
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="WhatsApp AI Secretary (Whapi)")
 
-# Official Whapi base for sending/receiving media
-WHAPI = "https://gate.whapi.cloud"
+# Whapi base that resolves/works on Render for this account
+WHAPI = "https://api.whapi.cloud"
 
 
 def _headers() -> dict:
