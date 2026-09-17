@@ -263,6 +263,10 @@ async def health() -> dict:
         "llm": CONFIG.ai_provider if CONFIG.has_llm else "offline-fallback",
         "caller_sees_voice": True,
         "webhook_verification": bool(CONFIG.twilio_webhook_secret),
+        "twilio_configured": bool(CONFIG.twilio_account_sid and CONFIG.twilio_auth_token and CONFIG.twilio_from_number),
+        "twilio_account_sid_configured": bool(CONFIG.twilio_account_sid),
+        "twilio_auth_token_configured": bool(CONFIG.twilio_auth_token),
+        "twilio_from_number_configured": bool(CONFIG.twilio_from_number),
     }
 
 
