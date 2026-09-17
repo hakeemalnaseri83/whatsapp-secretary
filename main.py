@@ -15,6 +15,8 @@ import logging
 import time
 import hmac
 import httpx
+from uuid import uuid4
+from twilio.rest import Client
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import Response
@@ -26,6 +28,7 @@ from llm import generate_reply
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="AI Voice Assistant (Twilio)")
+_booking_calls: dict[str, dict] = {}
 
 async def _verified_request(req: Request) -> None:
     secret = CONFIG.twilio_webhook_secret
@@ -87,6 +90,42 @@ def _notify_owner_whatsapp(call_sid: str, caller: str, transcript: str) -> None:
         logging.info("owner notification sent via WhatsApp")
     except Exception as e:
         logging.warning("owner WhatsApp notification failed: %s", e)
+
+def start_booking_call(booking: dict) -> str:
+    if not CONFIG.twilio_account_sid or not CONFIG.twilio_auth_token or not CONFIG.twilio_from_number:
+        raise RuntimeError("Twilio credentials or caller number are not configured")
+    booking_id = uuid4().hex
+    _booking_calls[booking_id] = booking
+    Client(CONFIG.twilio_account_sid, CONFIG.twilio_auth_token).calls.create(
+        to=booking["restaurant_phone"], from_=CONFIG.twilio_from_number,
+        url=f"{CONFIG.public_base_url}/booking/voice?booking_id={booking_id}", method="POST")
+    return booking_id
+
+@app.post("/booking/voice")
+async def booking_voice(req: Request) -> Response:
+    booking_id = req.query_params.get("booking_id", "")
+    if booking_id not in _booking_calls:
+        return Response("<Response><Say>Booking unavailable.</Say><Hangup/></Response>", media_type="text/xml")
+    resp = VoiceResponse()
+    gather = Gather(input="speech", timeout="8", speechTimeout="auto",
+                    action=f"/booking/respond?booking_id={booking_id}", method="POST")
+    gather.say("مرحباً، أتصل لحجز طاولة. هل يمكنكم تأكيد توفر الحجز وذكر التفاصيل؟", voice=_voice_name())
+    resp.append(gather)
+    resp.say("شكراً لكم. سأبلغ صاحب الطلب.", voice=_voice_name())
+    resp.hangup()
+    return Response(resp.to_xml(), media_type="text/xml")
+
+@app.post("/booking/respond")
+async def booking_respond(req: Request) -> Response:
+    booking_id = req.query_params.get("booking_id", "")
+    booking = _booking_calls.pop(booking_id, None)
+    form = await req.form()
+    result = (form.get("SpeechResult") or "لم تصل نتيجة واضحة من المطعم.").strip()
+    if booking:
+        _notify_owner_whatsapp(booking_id, booking.get("owner", ""),
+                               f"نتيجة حجز المطعم ({booking.get('request', '')}): {result}")
+    resp = VoiceResponse(); resp.say("شكراً لكم، إلى اللقاء.", voice=_voice_name()); resp.hangup()
+    return Response(resp.to_xml(), media_type="text/xml")
 
 
 # ---------- voice ----------

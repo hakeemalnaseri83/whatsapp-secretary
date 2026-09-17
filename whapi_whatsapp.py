@@ -22,7 +22,8 @@ from fastapi import FastAPI, Request, HTTPException
 
 from config import CONFIG
 from llm import generate_reply
-from booking import handle as handle_booking
+from booking import handle as handle_booking, take_confirmed
+from main import start_booking_call
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="WhatsApp AI Secretary (Whapi)")
@@ -131,6 +132,13 @@ def _handle_message(msg: dict) -> None:
         booking_reply = handle_booking(sender, text)
         if booking_reply:
             _send_text(sender, booking_reply)
+            booking = take_confirmed(sender)
+            if booking:
+                try:
+                    start_booking_call(booking)
+                except Exception as e:
+                    logging.warning("booking call failed: %s", e)
+                    _send_text(sender, "تعذر بدء الاتصال بالمطعم حالياً. لم يتم أي حجز.")
             return
         reply = generate_reply(text, sender)
         _send_text(sender, reply)

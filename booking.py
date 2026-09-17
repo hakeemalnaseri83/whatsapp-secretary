@@ -17,6 +17,7 @@ def handle(sender: str, text: str) -> str | None:
         if any(word in low for word in ("أؤكد", "اكد", "أوافق", "confirm", "نعم")):
             if not booking.get("restaurant_phone"):
                 return "ممتاز. أرسل رقم هاتف المطعم بصيغة دولية لأجهّز الاتصال بعد تأكيدك النهائي."
+            booking["confirmed"] = True
             return "تم تأكيد الطلب. سأبدأ الاتصال بالمطعم وأرسل لك النتيجة بعد انتهاء المكالمة."
         if any(word in low for word in ("إلغاء", "الغاء", "cancel")):
             _pending.pop(sender, None)
@@ -36,3 +37,13 @@ def handle(sender: str, text: str) -> str | None:
         return ("سأساعدك في حجز المطعم. أرسل رقم هاتف المطعم، ثم سأعرض لك معاينة "
                 "قبل أي اتصال. لن أتصل أو أحجز دون تأكيدك الصريح.")
     return None
+
+
+def take_confirmed(sender: str) -> dict | None:
+    booking = _pending.get(sender)
+    if not booking or not booking.get("confirmed") or not booking.get("restaurant_phone"):
+        return None
+    booking = dict(booking)
+    booking["owner"] = sender
+    _pending.pop(sender, None)
+    return booking

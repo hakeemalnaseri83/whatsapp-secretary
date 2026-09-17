@@ -29,3 +29,5 @@ services:
         sync: false
       - key: OWNER_WHATSAPP_NUMBER
         sync: false
+      - key: PUBLIC_BASE_URL
+        value: https://whatsapp-secretary-mrmm.onrender.com
