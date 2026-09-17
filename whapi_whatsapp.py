@@ -24,6 +24,7 @@ from config import CONFIG
 from llm import generate_reply
 from booking import handle as handle_booking, take_confirmed
 from main import start_booking_call
+from profile import get_profile, update_profile, profile_reply
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="WhatsApp AI Secretary (Whapi)")
@@ -114,6 +115,23 @@ def _text_of(msg: dict) -> str:
     return (str(tb) if tb else "").strip()
 
 
+def _profile_command(sender: str, text: str) -> str | None:
+    import re
+    patterns = {
+        "name": r"^(?:اسمي|اسمي هو)\s+(.+)$",
+        "job": r"^(?:عملي|أعمل|اعمل)\s+(.+)$",
+        "address": r"^(?:عنواني|عنواني هو)\s+(.+)$",
+    }
+    for key, pattern in patterns.items():
+        match = re.match(pattern, text.strip(), re.I)
+        if match:
+            return profile_reply(update_profile(sender, **{key: match.group(1)}))
+    if text.strip() in {"بياناتي", "بياناتي الشخصية", "معلوماتي"}:
+        profile = get_profile(sender)
+        return profile_reply(profile) if profile else "لم تحفظ أي بيانات بعد. أرسل مثلاً: اسمي حكيم"
+    return None
+
+
 def _handle_message(msg: dict) -> None:
     if msg.get("from_me"):
         return  # skip our own outbound confirmations
@@ -128,6 +146,10 @@ def _handle_message(msg: dict) -> None:
     if typ == "text":
         text = _text_of(msg)
         if not text:
+            return
+        saved = _profile_command(sender, text)
+        if saved:
+            _send_text(sender, saved)
             return
         booking_reply = handle_booking(sender, text)
         if booking_reply:

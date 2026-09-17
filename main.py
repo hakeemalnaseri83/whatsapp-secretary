@@ -25,6 +25,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 
 from config import CONFIG
 from llm import generate_reply
+from profile import get_profile
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="AI Voice Assistant (Twilio)")
@@ -129,7 +130,9 @@ async def booking_voice(req: Request) -> Response:
                     hints="نعم، لا، متاح، غير متاح، الساعة، غداً، اليوم، شخص، أشخاص، حجز، تأكيد",
                     action=f"/booking/respond?booking_id={booking_id}", method="POST")
     request = booking.get("details", {}).get("request", booking.get("request", "حجز طاولة"))
-    gather.say(f"مرحباً، أتصل نيابة عن عميل لطلب {request}. هل يمكنكم تأكيد التوفر وذكر التفاصيل؟", voice=_voice_name())
+    profile = booking.get("profile", {})
+    customer = f" واسمه {profile['name']}" if profile.get("name") else ""
+    gather.say(f"مرحباً، أتصل نيابة عن عميل{customer} لطلب {request}. هل يمكنكم تأكيد التوفر وذكر التفاصيل؟", voice=_voice_name())
     resp.append(gather)
     resp.say("شكراً لكم. سأبلغ صاحب الطلب.", voice=_voice_name())
     resp.hangup()

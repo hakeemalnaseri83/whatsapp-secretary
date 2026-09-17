@@ -1,5 +1,6 @@
 """Small, safe first-stage restaurant booking workflow."""
 import re
+from profile import get_profile
 
 _pending: dict[str, dict] = {}
 
@@ -115,5 +116,6 @@ def take_confirmed(sender: str) -> dict | None:
         return None
     booking = dict(booking)
     booking["owner"] = sender
+    booking["profile"] = get_profile(sender)
     _pending.pop(sender, None)
     return booking
