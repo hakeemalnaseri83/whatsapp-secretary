@@ -33,6 +33,15 @@ app = FastAPI(title="AI Voice Assistant (Twilio)")
 _booking_calls: dict[str, dict] = {}
 _WHAPI_BASES = ("https://api.whapi.cloud", "https://gate.whapi.cloud", "https://whapi.cloud")
 
+
+def _booking_result_status(result: str) -> str:
+    text = result.casefold()
+    if any(word in text for word in ("غير متاح", "لا يوجد", "ممتلئ", "لا يمكن", "رفض", "fully booked", "not available")):
+        return "not_available"
+    if any(word in text for word in ("تم الحجز", "تم التأكيد", "متاح", "أكد", "confirmed", "available")):
+        return "confirmed"
+    return "needs_review"
+
 async def _verified_request(req: Request) -> None:
     secret = CONFIG.twilio_webhook_secret
     if not secret:
@@ -146,9 +155,10 @@ async def booking_respond(req: Request) -> Response:
     form = await req.form()
     result = (form.get("SpeechResult") or "لم تصل نتيجة واضحة من المطعم.").strip()
     if booking:
-        update_booking(str(booking.get("history_id", "")), "completed", result)
+        status = _booking_result_status(result)
+        update_booking(str(booking.get("history_id", "")), status, result)
         _notify_owner_whatsapp(booking_id, booking.get("owner", ""),
-                               f"الطلب: {booking.get('request', '')}\nالنتيجة: {result}",
+                               f"الطلب: {booking.get('request', '')}\nالحالة: {status}\nالنتيجة: {result}",
                                heading="نتيجة حجز المطعم")
     resp = VoiceResponse(); resp.say("شكراً لكم، إلى اللقاء.", voice=_voice_name()); resp.hangup()
     return Response(resp.to_xml(), media_type="text/xml")

@@ -134,7 +134,8 @@ def _profile_command(sender: str, text: str) -> str | None:
         rows = recent_bookings(sender)
         if not rows:
             return "لا توجد حجوزات محفوظة بعد."
-        labels = {"calling": "قيد الاتصال", "completed": "اكتمل الاتصال", "busy": "الخط مشغول",
+        labels = {"calling": "قيد الاتصال", "confirmed": "تم التأكيد", "not_available": "غير متاح",
+                  "needs_review": "يحتاج مراجعة", "completed": "اكتمل الاتصال", "busy": "الخط مشغول",
                   "no-answer": "لم يرد المطعم", "failed": "فشل الاتصال", "canceled": "أُلغي"}
         lines = ["آخر الحجوزات:"]
         for created, phone, status, result in rows:
