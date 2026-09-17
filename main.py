@@ -14,6 +14,7 @@ import os
 import logging
 import time
 import hmac
+import httpx
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import Response
@@ -65,6 +66,29 @@ def _log(call_sid: str, caller: str, transcript: str, reply: str) -> None:
         logging.warning("transcript write failed: %s", e)
 
 
+def _notify_owner_whatsapp(call_sid: str, caller: str, transcript: str) -> None:
+    """Forward a caller's message to the configured owner via Whapi."""
+    if not CONFIG.owner_whatsapp_number or not CONFIG.whapi_token or not transcript:
+        return
+    body = (
+        "رسالة من مكالمة واردة\n"
+        f"رقم المتصل: {caller or 'غير معروف'}\n"
+        f"النص: {transcript}\n"
+        f"معرّف المكالمة: {call_sid or 'غير متوفر'}"
+    )
+    try:
+        r = httpx.post(
+            "https://gate.whapi.cloud/messages/text",
+            headers={"Authorization": f"Bearer {CONFIG.whapi_token}"},
+            json={"to": CONFIG.owner_whatsapp_number, "body": body},
+            timeout=20,
+        )
+        r.raise_for_status()
+        logging.info("owner notification sent via WhatsApp")
+    except Exception as e:
+        logging.warning("owner WhatsApp notification failed: %s", e)
+
+
 # ---------- voice ----------
 
 @app.post("/voice")
@@ -104,6 +128,7 @@ async def respond(req: Request) -> Response:
 
     reply = generate_reply(transcript, caller)
     _log(call_sid, caller, transcript, reply)
+    _notify_owner_whatsapp(call_sid, caller, transcript)
 
     resp = VoiceResponse()
     resp.say(reply, voice=_voice_name())
@@ -137,6 +162,7 @@ async def final(req: Request) -> Response:
     call_sid = form.get("CallSid", "")
     if transcript:
         _log(call_sid, caller, transcript, "(additional)")
+        _notify_owner_whatsapp(call_sid, caller, transcript)
     resp = VoiceResponse()
     resp.say(
         "شكراً، سأقوم بتوصيل كل شيء. مع السلامة." if CONFIG.language == "ar"

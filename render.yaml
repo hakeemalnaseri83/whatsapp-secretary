@@ -27,3 +27,5 @@ services:
         sync: false
       - key: TWILIO_FROM_NUMBER
         sync: false
+      - key: OWNER_WHATSAPP_NUMBER
+        sync: false

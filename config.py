@@ -26,6 +26,7 @@ class Config:
     twilio_account_sid: str = os.getenv("TWILIO_ACCOUNT_SID", "")
     twilio_auth_token: str = os.getenv("TWILIO_AUTH_TOKEN", "")
     twilio_from_number: str = os.getenv("TWILIO_FROM_NUMBER", "")
+    owner_whatsapp_number: str = os.getenv("OWNER_WHATSAPP_NUMBER", "")
 
     # Whapi.Cloud (WhatsApp assistant)
     whapi_token: str = os.getenv("WHAPI_TOKEN", "")
