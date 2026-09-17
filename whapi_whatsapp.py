@@ -22,6 +22,7 @@ from fastapi import FastAPI, Request, HTTPException
 
 from config import CONFIG
 from llm import generate_reply
+from booking import handle as handle_booking
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="WhatsApp AI Secretary (Whapi)")
@@ -126,6 +127,10 @@ def _handle_message(msg: dict) -> None:
     if typ == "text":
         text = _text_of(msg)
         if not text:
+            return
+        booking_reply = handle_booking(sender, text)
+        if booking_reply:
+            _send_text(sender, booking_reply)
             return
         reply = generate_reply(text, sender)
         _send_text(sender, reply)
