@@ -98,7 +98,10 @@ def start_booking_call(booking: dict) -> str:
     _booking_calls[booking_id] = booking
     Client(CONFIG.twilio_account_sid, CONFIG.twilio_auth_token).calls.create(
         to=booking["restaurant_phone"], from_=CONFIG.twilio_from_number,
-        url=f"{CONFIG.public_base_url}/booking/voice?booking_id={booking_id}", method="POST")
+        url=f"{CONFIG.public_base_url}/booking/voice?booking_id={booking_id}", method="POST",
+        status_callback=f"{CONFIG.public_base_url}/booking/status?booking_id={booking_id}",
+        status_callback_method="POST",
+        status_callback_event=["completed"])
     return booking_id
 
 @app.post("/booking/voice")
@@ -127,6 +130,26 @@ async def booking_respond(req: Request) -> Response:
                                f"نتيجة حجز المطعم ({booking.get('request', '')}): {result}")
     resp = VoiceResponse(); resp.say("شكراً لكم، إلى اللقاء.", voice=_voice_name()); resp.hangup()
     return Response(resp.to_xml(), media_type="text/xml")
+
+
+@app.post("/booking/status")
+async def booking_status(req: Request) -> dict:
+    """Notify the owner when the restaurant call ends without a speech result."""
+    booking_id = req.query_params.get("booking_id", "")
+    form = await req.form()
+    status = (form.get("CallStatus") or "unknown").strip().lower()
+    booking = _booking_calls.pop(booking_id, None)
+    if booking and status != "completed":
+        labels = {
+            "busy": "الخط مشغول",
+            "no-answer": "لم يرد المطعم",
+            "failed": "فشل الاتصال بالمطعم",
+            "canceled": "تم إلغاء الاتصال",
+        }
+        result = labels.get(status, f"انتهى الاتصال بالحالة: {status}")
+        _notify_owner_whatsapp(booking_id, booking.get("owner", ""),
+                               f"نتيجة حجز المطعم ({booking.get('request', '')}): {result}")
+    return {"status": "ok"}
 
 
 # ---------- voice ----------
