@@ -109,6 +109,7 @@ async def booking_voice(req: Request) -> Response:
     booking_id = req.query_params.get("booking_id", "")
     if booking_id not in _booking_calls:
         return Response("<Response><Say>Booking unavailable.</Say><Hangup/></Response>", media_type="text/xml")
+    booking = _booking_calls[booking_id]
     resp = VoiceResponse()
     gather = Gather(input="speech", timeout="8", speechTimeout="auto",
                     action=f"/booking/respond?booking_id={booking_id}", method="POST")
