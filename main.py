@@ -124,6 +124,8 @@ async def booking_voice(req: Request) -> Response:
     booking = _booking_calls[booking_id]
     resp = VoiceResponse()
     gather = Gather(input="speech", timeout="8", speechTimeout="auto",
+                    speechModel="phone_call", language="ar-SA",
+                    hints="نعم، لا، متاح، غير متاح، الساعة، غداً، اليوم، شخص، أشخاص، حجز، تأكيد",
                     action=f"/booking/respond?booking_id={booking_id}", method="POST")
     request = booking.get("details", {}).get("request", booking.get("request", "حجز طاولة"))
     gather.say(f"مرحباً، أتصل نيابة عن عميل لطلب {request}. هل يمكنكم تأكيد التوفر وذكر التفاصيل؟", voice=_voice_name())
@@ -180,6 +182,8 @@ async def voice(req: Request) -> Response:
         timeout="4",
         speechTimeout="auto",
         speechModel="phone_call",
+        language="ar-SA",
+        hints="نعم، لا، متاح، غير متاح، الساعة، غداً، اليوم، شخص، أشخاص، حجز، تأكيد",
         action="/respond",
         method="POST",
     )
