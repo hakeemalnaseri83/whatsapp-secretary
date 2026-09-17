@@ -26,6 +26,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 from config import CONFIG
 from llm import generate_reply
 from profile import get_profile
+from store import update_booking
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="AI Voice Assistant (Twilio)")
@@ -145,6 +146,7 @@ async def booking_respond(req: Request) -> Response:
     form = await req.form()
     result = (form.get("SpeechResult") or "لم تصل نتيجة واضحة من المطعم.").strip()
     if booking:
+        update_booking(str(booking.get("history_id", "")), "completed", result)
         _notify_owner_whatsapp(booking_id, booking.get("owner", ""),
                                f"الطلب: {booking.get('request', '')}\nالنتيجة: {result}",
                                heading="نتيجة حجز المطعم")
@@ -167,6 +169,7 @@ async def booking_status(req: Request) -> dict:
             "canceled": "تم إلغاء الاتصال",
         }
         result = labels.get(status, f"انتهى الاتصال بالحالة: {status}")
+        update_booking(str(booking.get("history_id", "")), status, result)
         _notify_owner_whatsapp(booking_id, booking.get("owner", ""),
                                f"الطلب: {booking.get('request', '')}\nالنتيجة: {result}",
                                heading="نتيجة حجز المطعم")

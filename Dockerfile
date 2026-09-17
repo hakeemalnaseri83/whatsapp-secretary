@@ -8,7 +8,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy app code (whapi_whatsapp needs config + llm)
-COPY config.py llm.py profile.py booking.py main.py whapi_whatsapp.py combined.py ./
+COPY config.py llm.py profile.py store.py booking.py main.py whapi_whatsapp.py combined.py ./
 
 # Render provides the PORT env var
 ENV PORT=8000
