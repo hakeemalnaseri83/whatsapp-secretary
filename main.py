@@ -72,7 +72,13 @@ def _log(call_sid: str, caller: str, transcript: str, reply: str) -> None:
 
 def _notify_owner_whatsapp(call_sid: str, caller: str, transcript: str) -> None:
     """Forward a caller's message to the configured owner via Whapi."""
-    if not CONFIG.owner_whatsapp_number or not CONFIG.whapi_token or not transcript:
+    if not CONFIG.owner_whatsapp_number:
+        logging.warning("owner WhatsApp notification skipped: OWNER_WHATSAPP_NUMBER is empty")
+        return
+    if not CONFIG.whapi_token:
+        logging.warning("owner WhatsApp notification skipped: WHAPI_TOKEN is empty")
+        return
+    if not transcript:
         return
     body = (
         "رسالة من مكالمة واردة\n"
@@ -270,6 +276,7 @@ async def health() -> dict:
         "llm": CONFIG.ai_provider if CONFIG.has_llm else "offline-fallback",
         "caller_sees_voice": True,
         "webhook_verification": bool(CONFIG.twilio_webhook_secret),
+        "owner_whatsapp_configured": bool(CONFIG.owner_whatsapp_number),
         "twilio_configured": bool(CONFIG.twilio_account_sid and CONFIG.twilio_auth_token and CONFIG.twilio_from_number),
         "twilio_account_sid_configured": bool(CONFIG.twilio_account_sid),
         "twilio_auth_token_configured": bool(CONFIG.twilio_auth_token),
