@@ -70,7 +70,8 @@ def _log(call_sid: str, caller: str, transcript: str, reply: str) -> None:
         logging.warning("transcript write failed: %s", e)
 
 
-def _notify_owner_whatsapp(call_sid: str, caller: str, transcript: str) -> None:
+def _notify_owner_whatsapp(call_sid: str, caller: str, transcript: str,
+                            heading: str = "رسالة من مكالمة واردة") -> None:
     """Forward a caller's message to the configured owner via Whapi."""
     if not CONFIG.owner_whatsapp_number:
         logging.warning("owner WhatsApp notification skipped: OWNER_WHATSAPP_NUMBER is empty")
@@ -81,7 +82,7 @@ def _notify_owner_whatsapp(call_sid: str, caller: str, transcript: str) -> None:
     if not transcript:
         return
     body = (
-        "رسالة من مكالمة واردة\n"
+        f"{heading}\n"
         f"رقم المتصل: {caller or 'غير معروف'}\n"
         f"النص: {transcript}\n"
         f"معرّف المكالمة: {call_sid or 'غير متوفر'}"
@@ -142,7 +143,8 @@ async def booking_respond(req: Request) -> Response:
     result = (form.get("SpeechResult") or "لم تصل نتيجة واضحة من المطعم.").strip()
     if booking:
         _notify_owner_whatsapp(booking_id, booking.get("owner", ""),
-                               f"نتيجة حجز المطعم ({booking.get('request', '')}): {result}")
+                               f"الطلب: {booking.get('request', '')}\nالنتيجة: {result}",
+                               heading="نتيجة حجز المطعم")
     resp = VoiceResponse(); resp.say("شكراً لكم، إلى اللقاء.", voice=_voice_name()); resp.hangup()
     return Response(resp.to_xml(), media_type="text/xml")
 
@@ -163,7 +165,8 @@ async def booking_status(req: Request) -> dict:
         }
         result = labels.get(status, f"انتهى الاتصال بالحالة: {status}")
         _notify_owner_whatsapp(booking_id, booking.get("owner", ""),
-                               f"نتيجة حجز المطعم ({booking.get('request', '')}): {result}")
+                               f"الطلب: {booking.get('request', '')}\nالنتيجة: {result}",
+                               heading="نتيجة حجز المطعم")
     return {"status": "ok"}
 
 
