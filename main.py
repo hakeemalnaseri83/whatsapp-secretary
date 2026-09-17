@@ -162,7 +162,6 @@ def start_booking_call(booking: dict) -> str:
         status_callback=f"{CONFIG.public_base_url}/booking/status?booking_id={booking_id}",
         status_callback_method="POST",
         status_callback_event=["completed"])
-    _schedule_reminder(booking)
     return booking_id
 
 @app.post("/booking/voice")
@@ -194,6 +193,8 @@ async def booking_respond(req: Request) -> Response:
     if booking:
         status = _booking_result_status(result)
         update_booking(str(booking.get("history_id", "")), status, result)
+        if status == "confirmed":
+            _schedule_reminder(booking)
         _notify_owner_whatsapp(booking_id, booking.get("owner", ""),
                                f"الطلب: {booking.get('request', '')}\nالحالة: {status}\nالنتيجة: {result}",
                                heading="نتيجة حجز المطعم")
