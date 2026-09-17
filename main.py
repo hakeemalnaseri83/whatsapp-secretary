@@ -109,7 +109,8 @@ async def booking_voice(req: Request) -> Response:
     resp = VoiceResponse()
     gather = Gather(input="speech", timeout="8", speechTimeout="auto",
                     action=f"/booking/respond?booking_id={booking_id}", method="POST")
-    gather.say("مرحباً، أتصل لحجز طاولة. هل يمكنكم تأكيد توفر الحجز وذكر التفاصيل؟", voice=_voice_name())
+    request = booking.get("details", {}).get("request", booking.get("request", "حجز طاولة"))
+    gather.say(f"مرحباً، أتصل نيابة عن عميل لطلب {request}. هل يمكنكم تأكيد التوفر وذكر التفاصيل؟", voice=_voice_name())
     resp.append(gather)
     resp.say("شكراً لكم. سأبلغ صاحب الطلب.", voice=_voice_name())
     resp.hangup()
