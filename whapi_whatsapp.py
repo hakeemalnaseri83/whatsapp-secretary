@@ -25,7 +25,7 @@ from llm import generate_reply
 from booking import handle as handle_booking, take_confirmed
 from main import start_booking_call
 from profile import get_profile, update_profile, profile_reply
-from store import recent_bookings
+from store import recent_bookings, cancel_latest_booking
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="WhatsApp AI Secretary (Whapi)")
@@ -130,6 +130,8 @@ def _profile_command(sender: str, text: str) -> str | None:
     if text.strip() in {"بياناتي", "بياناتي الشخصية", "معلوماتي"}:
         profile = get_profile(sender)
         return profile_reply(profile) if profile else "لم تحفظ أي بيانات بعد. أرسل مثلاً: اسمي حكيم"
+    if text.strip() in {"ألغِ آخر حجز", "الغاء آخر حجز", "إلغاء آخر حجز", "ألغِ الحجز"}:
+        return "تم إلغاء آخر حجز وتحديث السجل." if cancel_latest_booking(sender) else "لا يوجد حجز محفوظ لإلغائه."
     if text.strip() in {"آخر حجوزاتي", "حجوزاتي", "سجل الحجوزات"}:
         rows = recent_bookings(sender)
         if not rows:

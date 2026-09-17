@@ -89,3 +89,21 @@ def recent_bookings(user_id: str, limit: int = 5) -> list[tuple]:
         return conn.execute(
             f"SELECT created_at, restaurant_phone, status, result FROM bookings WHERE user_id={mark} ORDER BY id DESC LIMIT {mark}",
             (user_id, limit)).fetchall()
+
+
+def latest_booking_id(user_id: str) -> int | None:
+    with _db() as conn:
+        mark = "%s" if DATABASE_URL.startswith(("postgres://", "postgresql://")) else "?"
+        row = conn.execute(f"SELECT id FROM bookings WHERE user_id={mark} ORDER BY id DESC LIMIT 1", (user_id,)).fetchone()
+    return int(row[0]) if row else None
+
+
+def cancel_latest_booking(user_id: str) -> bool:
+    with _db() as conn:
+        mark = "%s" if DATABASE_URL.startswith(("postgres://", "postgresql://")) else "?"
+        row = conn.execute(f"SELECT id FROM bookings WHERE user_id={mark} ORDER BY id DESC LIMIT 1", (user_id,)).fetchone()
+        if not row:
+            return False
+        conn.execute(f"UPDATE bookings SET status='canceled', result='أُلغي بناءً على طلب المستخدم' WHERE id={mark}", (row[0],))
+        conn.commit()
+        return True
