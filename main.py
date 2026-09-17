@@ -74,6 +74,18 @@ def _send_due_reminders() -> None:
         _reminders.remove(reminder)
 
 
+@app.get("/tasks/reminders")
+async def reminder_task(req: Request) -> dict:
+    """Publicly callable, secret-protected wake-up endpoint for a free host."""
+    secret = CONFIG.reminder_task_secret
+    supplied = req.query_params.get("key", "")
+    if not secret or not hmac.compare_digest(supplied, secret):
+        raise HTTPException(status_code=401, detail="Invalid task key")
+    before = len(_reminders)
+    _send_due_reminders()
+    return {"status": "ok", "processed": before - len(_reminders)}
+
+
 _scheduler = BackgroundScheduler(daemon=True)
 _scheduler.add_job(_send_due_reminders, "interval", minutes=1)
 _scheduler.start()
