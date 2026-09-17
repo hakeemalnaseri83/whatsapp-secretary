@@ -131,7 +131,9 @@ def _profile_command(sender: str, text: str) -> str | None:
     if text.strip() in {"بياناتي", "بياناتي الشخصية", "معلوماتي"}:
         profile = get_profile(sender)
         return profile_reply(profile) if profile else "لم تحفظ أي بيانات بعد. أرسل مثلاً: اسمي حكيم"
-    if text.strip() in {"ألغِ آخر حجز", "الغاء آخر حجز", "إلغاء آخر حجز", "ألغِ الحجز", "إلغاء الحجز", "الغاء الحجز", "أريد إلغاء الحجز"}:
+    normalized = text.strip().casefold().replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
+    cancel_request = (("الغاء" in normalized or "الغ" in normalized) and "حجز" in normalized)
+    if cancel_request:
         booking = latest_booking(sender)
         if not booking: return "لا يوجد حجز محفوظ لإلغائه."
         _cancel_pending[sender] = booking
