@@ -34,7 +34,7 @@ def _phone(text: str) -> str:
 
 def handle(sender: str, text: str) -> str | None:
     """Return a workflow response, or None when this is not a booking request."""
-    low = text.casefold()
+    low = text.casefold().replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
     if sender in _pending:
         booking = _pending[sender]
         if any(word in low for word in ("أؤكد", "اكد", "أوافق", "confirm", "نعم")):
@@ -52,7 +52,12 @@ def handle(sender: str, text: str) -> str | None:
                 return _preview(booking)
         return "لإكمال الحجز أرسل رقم هاتف المطعم، أو اكتب إلغاء."
 
-    if any(word in low for word in ("احجز", "حجز", "مطعم", "restaurant", "reservation")):
+    booking_words = (
+        "احجز", "احجزلي", "احجز لي", "حجز", "حجوز", "مطعم", "مطاعم",
+        "طاولة", "ترابيزة", "اريد حجز", "اريد ان احجز", "ساعدني احجز",
+        "restaurant", "reservation", "book a table",
+    )
+    if any(word in low for word in booking_words):
         _pending[sender] = {"request": text, "details": _details(text)}
         return ("سأساعدك في حجز المطعم. أرسل رقم هاتف المطعم، ثم سأعرض لك معاينة "
                 "قبل أي اتصال. لن أتصل أو أحجز دون تأكيدك الصريح.")
