@@ -43,6 +43,11 @@ def _preview(booking: dict) -> str:
     return "\n".join(lines)
 
 
+def _missing(details: dict) -> list[str]:
+    return [label for key, label in (("date", "التاريخ"), ("time", "الوقت"), ("people", "عدد الأشخاص"))
+            if not details.get(key)]
+
+
 def _phone(text: str) -> str:
     m = re.search(r"\+?\d[\d\s()-]{7,}\d", text)
     if not m:
@@ -72,9 +77,19 @@ def handle(sender: str, text: str) -> str | None:
         phone = _phone(text)
         if phone:
             booking["restaurant_phone"] = phone
+            missing = _missing(booking.get("details", {}))
+            if missing:
+                return "أرسل من فضلك: " + "، ".join(missing) + "، ثم سأعرض المعاينة."
             return _preview(booking)
         if not booking.get("restaurant_phone"):
-            return "لإكمال الحجز أرسل رقم هاتف المطعم، أو اكتب إلغاء."
+            details = booking.setdefault("details", {})
+            details.update({k: v for k, v in _details(text).items() if k != "request"})
+            missing = _missing(details)
+            if missing:
+                return "لإكمال الحجز أرسل: " + "، ".join(missing) + "، أو اكتب إلغاء."
+            if booking.get("restaurant_phone"):
+                return _preview(booking)
+            return "أرسل رقم هاتف المطعم، أو اكتب إلغاء."
         return "لإكمال الحجز أرسل رقم هاتف المطعم، أو اكتب إلغاء."
 
     booking_words = (
@@ -83,9 +98,12 @@ def handle(sender: str, text: str) -> str | None:
         "restaurant", "reservation", "book a table",
     )
     if any(word in low for word in booking_words):
-        _pending[sender] = {"request": text, "details": _details(text)}
+        details = _details(text)
+        _pending[sender] = {"request": text, "details": details}
+        missing = _missing(details)
+        extra = f" أرسل أيضاً: {'، '.join(missing)}." if missing else ""
         return ("سأساعدك في حجز المطعم. أرسل رقم هاتف المطعم، ثم سأعرض لك معاينة "
-                "قبل أي اتصال. لن أتصل أو أحجز دون تأكيدك الصريح.")
+                "قبل أي اتصال. لن أتصل أو أحجز دون تأكيدك الصريح." + extra)
     return None
 
 
