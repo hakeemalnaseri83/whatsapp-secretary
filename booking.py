@@ -10,8 +10,22 @@ def _details(text: str) -> dict:
     time = re.search(r"(?:الساعة|الساعة\s*)?\s*(\d{1,2}(?::\d{2})?)\s*(صباحاً|مساءً|مساء|am|pm)?", text, re.I)
     if people:
         details["people"] = people.group(1)
+    else:
+        word_people = {
+            "شخص": "1", "شخصين": "2", "اثنين": "2", "اثنان": "2",
+            "ثلاثة": "3", "ثلاث": "3", "اربعة": "4", "أربعة": "4",
+            "خمسة": "5", "ستة": "6", "سبعة": "7", "ثمانية": "8",
+        }
+        for word, count in word_people.items():
+            if word in text:
+                details["people"] = count
+                break
     if time and any(x in text.casefold() for x in ("ساعة", "الساعة", "am", "pm", "مساء", "صباح")):
         details["time"] = " ".join(x for x in time.groups() if x)
+    if "غدا" in text or "غداً" in text:
+        details["date"] = "غداً"
+    elif "اليوم" in text:
+        details["date"] = "اليوم"
     details["request"] = text
     return details
 
@@ -23,6 +37,8 @@ def _preview(booking: dict) -> str:
         lines.append(f"عدد الأشخاص: {details['people']}")
     if details.get("time"):
         lines.append(f"الوقت: {details['time']}")
+    if details.get("date"):
+        lines.append(f"التاريخ: {details['date']}")
     lines += [f"رقم المطعم: {booking['restaurant_phone']}", "", "إذا كانت التفاصيل صحيحة اكتب: أؤكد"]
     return "\n".join(lines)
 
