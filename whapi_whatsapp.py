@@ -138,7 +138,11 @@ def _handle_message(msg: dict) -> None:
                     start_booking_call(booking)
                 except Exception as e:
                     logging.warning("booking call failed: %s", e)
-                    _send_text(sender, "تعذر بدء الاتصال بالمطعم حالياً. لم يتم أي حجز.")
+                    error_text = str(e)
+                    if "21219" in error_text or "verified" in error_text.lower():
+                        _send_text(sender, "لم يبدأ الاتصال: حساب Twilio التجريبي يسمح بالاتصال بالأرقام الموثّقة فقط. لم يتم أي حجز. يرجى ترقية الحساب أو اختبار رقم موثّق.")
+                    else:
+                        _send_text(sender, "تعذر بدء الاتصال بالمطعم حالياً. لم يتم أي حجز.")
             return
         reply = generate_reply(text, sender)
         _send_text(sender, reply)
