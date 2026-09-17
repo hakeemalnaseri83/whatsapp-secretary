@@ -45,7 +45,7 @@ def handle(sender: str, text: str) -> str | None:
     low = text.casefold().replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
     if sender in _pending:
         booking = _pending[sender]
-        if any(word in low for word in ("أؤكد", "اكد", "أوافق", "confirm", "نعم")):
+        if any(word in low for word in ("أؤكد", "اؤكد", "اكد", "أوافق", "اوافق", "confirm", "نعم")):
             if not booking.get("restaurant_phone"):
                 return "ممتاز. أرسل رقم هاتف المطعم بصيغة دولية لأجهّز الاتصال بعد تأكيدك النهائي."
             booking["confirmed"] = True
