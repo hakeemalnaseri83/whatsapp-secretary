@@ -54,7 +54,9 @@ def _phone(text: str) -> str:
         return ""
     phone = re.sub(r"[^\d+]", "", m.group(0))
     # Accept Turkish local mobile format and normalize it for Twilio.
-    if phone.startswith("0") and len(phone) == 11:
+    if phone.startswith("0090") and len(phone) == 14:
+        phone = "+90" + phone[4:]
+    elif phone.startswith("0") and len(phone) == 11:
         phone = "+90" + phone[1:]
     elif phone.startswith("90") and len(phone) == 12:
         phone = "+" + phone
