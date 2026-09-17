@@ -50,10 +50,11 @@ def generate_reply(caller_transcript: str, caller_number: str) -> str:
             f"Caller ({caller_number or 'unknown'}) said: \"{caller_transcript}\". "
             "Give a short, warm final acknowledgement reply."
         )
-        return {
-            "openai": _openai(_system_prompt(), user_msg),
-            "gemini": _gemini(_system_prompt(), user_msg),
-        }[CONFIG.ai_provider]
+        # Do not construct a dict of calls here: Python evaluates every value
+        # eagerly, which previously called Gemini even when OpenAI was selected.
+        if CONFIG.ai_provider == "gemini":
+            return _gemini(_system_prompt(), user_msg)
+        return _openai(_system_prompt(), user_msg)
     except Exception as e:
         logging.warning("LLM generate_reply failed: %r", e)
         if CONFIG.debug:

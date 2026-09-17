@@ -31,7 +31,9 @@ class Config:
     whapi_token: str = os.getenv("WHAPI_TOKEN", "")
     voice_replies: bool = _enabled(os.getenv("VOICE_REPLIES"), True)
     # Debug: on failure, put the LLM error text into the reply (for diagnosing)
-    debug: bool = _enabled(os.getenv("DEBUG"), True)
+    debug: bool = _enabled(os.getenv("DEBUG"), False)
+    twilio_webhook_secret: str = os.getenv("TWILIO_WEBHOOK_SECRET", "")
+    whapi_webhook_secret: str = os.getenv("WHAPI_WEBHOOK_SECRET", "")
 
     # Optional: write every handled call transcript into this file (JSON lines)
     transcript_file: str = os.getenv("TRANSCRIPT_FILE", "transcripts.jsonl")

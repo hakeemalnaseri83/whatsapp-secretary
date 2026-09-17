@@ -14,9 +14,11 @@ Official endpoints (Whapi docs):
 import base64
 import io
 import logging
+import hmac
+import os
 
 import httpx
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 
 from config import CONFIG
 from llm import generate_reply
@@ -151,6 +153,12 @@ def _handle_message(msg: dict) -> None:
 
 @app.post("/")
 async def webhook(req: Request) -> dict:
+    secret = CONFIG.whapi_webhook_secret
+    if not secret:
+        if os.getenv("ENV", "production").lower() == "production":
+            raise HTTPException(status_code=503, detail="Webhook verification is not configured")
+    elif not hmac.compare_digest(req.headers.get("X-Webhook-Secret", ""), secret):
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
     try:
         data = await req.json()
     except Exception:
@@ -168,7 +176,8 @@ async def webhook(req: Request) -> dict:
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok", "llm": CONFIG.ai_provider if CONFIG.has_llm else "offline",
-            "voice_replies": CONFIG.voice_replies, "whapi": bool(CONFIG.whapi_token)}
+            "voice_replies": CONFIG.voice_replies, "whapi": bool(CONFIG.whapi_token),
+            "webhook_verification": bool(CONFIG.whapi_webhook_secret)}
 
 
 if __name__ == "__main__":
