@@ -189,7 +189,8 @@ async def booking_voice(req: Request) -> Response:
     request = booking.get("details", {}).get("request", booking.get("request", "حجز طاولة"))
     profile = booking.get("profile", {})
     customer = f" واسمه {profile['name']}" if profile.get("name") else ""
-    gather.say(f"مرحباً، أتصل نيابة عن عميل{customer} لطلب {request}. هل يمكنكم تأكيد التوفر وذكر التفاصيل؟", voice=_voice_name())
+    action = "إلغاء الحجز" if booking.get("operation") == "cancel" else f"طلب {request}"
+    gather.say(f"مرحباً، أتصل نيابة عن عميل{customer} بخصوص {action}. هل يمكنكم تأكيد الإجراء وذكر التفاصيل؟", voice=_voice_name())
     resp.append(gather)
     resp.say("شكراً لكم. سأبلغ صاحب الطلب.", voice=_voice_name())
     resp.hangup()
@@ -203,6 +204,8 @@ async def booking_respond(req: Request) -> Response:
     result = (form.get("SpeechResult") or "لم تصل نتيجة واضحة من المطعم.").strip()
     if booking:
         status = _booking_result_status(result)
+        if booking.get("operation") == "cancel" and status == "confirmed":
+            status = "canceled"
         update_booking(str(booking.get("history_id", "")), status, result)
         if status == "confirmed":
             _schedule_reminder(booking)

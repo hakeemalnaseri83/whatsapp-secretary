@@ -97,6 +97,12 @@ def latest_booking_id(user_id: str) -> int | None:
         row = conn.execute(f"SELECT id FROM bookings WHERE user_id={mark} ORDER BY id DESC LIMIT 1", (user_id,)).fetchone()
     return int(row[0]) if row else None
 
+def latest_booking(user_id: str) -> dict | None:
+    with _db() as conn:
+        mark = "%s" if DATABASE_URL.startswith(("postgres://", "postgresql://")) else "?"
+        row = conn.execute(f"SELECT id,request,restaurant_phone,status FROM bookings WHERE user_id={mark} ORDER BY id DESC LIMIT 1", (user_id,)).fetchone()
+    return {"history_id": row[0], "request": row[1], "restaurant_phone": row[2], "status": row[3], "owner": user_id} if row else None
+
 
 def cancel_latest_booking(user_id: str) -> bool:
     with _db() as conn:
