@@ -279,7 +279,10 @@ async def health() -> dict:
         "owner_whatsapp_configured": bool(CONFIG.owner_whatsapp_number),
         "twilio_configured": bool(CONFIG.twilio_account_sid and CONFIG.twilio_auth_token and CONFIG.twilio_from_number),
         "twilio_account_sid_configured": bool(CONFIG.twilio_account_sid),
+        "twilio_account_sid_prefix": CONFIG.twilio_account_sid[:2] if CONFIG.twilio_account_sid else "",
+        "twilio_account_sid_length": len(CONFIG.twilio_account_sid),
         "twilio_auth_token_configured": bool(CONFIG.twilio_auth_token),
+        "twilio_auth_token_length": len(CONFIG.twilio_auth_token),
         "twilio_from_number_configured": bool(CONFIG.twilio_from_number),
     }
 
