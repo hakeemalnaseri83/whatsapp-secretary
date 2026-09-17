@@ -151,6 +151,12 @@ def _handle_message(msg: dict) -> None:
         _send_text(sender, generate_reply("(message)", sender))
 
 
+@app.get("/")
+async def webhook_check() -> dict:
+    """Allow provider connectivity checks without triggering message handling."""
+    return {"status": "ok", "webhook": "ready"}
+
+
 @app.post("/")
 async def webhook(req: Request) -> dict:
     secret = CONFIG.whapi_webhook_secret
