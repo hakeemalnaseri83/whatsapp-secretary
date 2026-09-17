@@ -29,7 +29,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 from config import CONFIG
 from llm import generate_reply
 from profile import get_profile
-from store import update_booking
+from store import update_booking, create_reminder, due_reminders, mark_reminder_sent
 
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="AI Voice Assistant (Twilio)")
@@ -61,17 +61,17 @@ def _schedule_reminder(booking: dict) -> None:
     now = datetime.now(ZoneInfo("Europe/Istanbul"))
     day = now.date() + timedelta(days=1 if details["date"] == "غداً" else 0)
     reminder_at = datetime.combine(day, datetime.min.time(), ZoneInfo("Europe/Istanbul")).replace(hour=hour, minute=minute) - timedelta(hours=2)
-    _reminders.append({"at": reminder_at, "owner": booking.get("owner", ""), "request": booking.get("request", "")})
+    create_reminder(booking.get("owner", ""), booking.get("request", ""), reminder_at.isoformat())
 
 
 def _send_due_reminders() -> None:
-    now = datetime.now(ZoneInfo("Europe/Istanbul"))
-    due = [r for r in _reminders if r["at"] <= now]
-    for reminder in due:
-        _notify_owner_whatsapp("reminder", reminder["owner"],
-                               f"تذكير: موعد الحجز بعد ساعتين.\nالطلب: {reminder['request']}",
+    now = datetime.now(ZoneInfo("Europe/Istanbul")).isoformat()
+    due = due_reminders(now)
+    for reminder_id, owner, request in due:
+        _notify_owner_whatsapp("reminder", owner,
+                               f"تذكير: موعد الحجز بعد ساعتين.\nالطلب: {request}",
                                heading="تذكير الحجز")
-        _reminders.remove(reminder)
+        mark_reminder_sent(reminder_id)
 
 
 @app.get("/tasks/reminders")
@@ -81,9 +81,8 @@ async def reminder_task(req: Request) -> dict:
     supplied = req.query_params.get("key", "")
     if not secret or not hmac.compare_digest(supplied, secret):
         raise HTTPException(status_code=401, detail="Invalid task key")
-    before = len(_reminders)
     _send_due_reminders()
-    return {"status": "ok", "processed": before - len(_reminders)}
+    return {"status": "ok"}
 
 
 _scheduler = BackgroundScheduler(daemon=True)

@@ -28,6 +28,36 @@ def _db():
     return conn
 
 
+def create_reminder(user_id: str, request: str, remind_at: str) -> int:
+    with _db() as conn:
+        reminder_id = "SERIAL PRIMARY KEY" if DATABASE_URL.startswith(("postgres://", "postgresql://")) else "INTEGER PRIMARY KEY"
+        conn.execute(f"CREATE TABLE IF NOT EXISTS reminders (id {reminder_id}, user_id TEXT NOT NULL, request TEXT NOT NULL, remind_at TEXT NOT NULL, sent INTEGER DEFAULT 0)")
+        mark = "%s" if DATABASE_URL.startswith(("postgres://", "postgresql://")) else "?"
+        if DATABASE_URL.startswith(("postgres://", "postgresql://")):
+            cur = conn.execute("INSERT INTO reminders(user_id,request,remind_at,sent) VALUES (%s,%s,%s,0) RETURNING id", (user_id, request, remind_at))
+            rid = cur.fetchone()[0]
+        else:
+            cur = conn.execute("INSERT INTO reminders(user_id,request,remind_at,sent) VALUES (?,?,?,0)", (user_id, request, remind_at))
+            rid = cur.lastrowid
+        conn.commit()
+        return int(rid)
+
+
+def due_reminders(now: str) -> list[tuple]:
+    with _db() as conn:
+        reminder_id = "SERIAL PRIMARY KEY" if DATABASE_URL.startswith(("postgres://", "postgresql://")) else "INTEGER PRIMARY KEY"
+        conn.execute(f"CREATE TABLE IF NOT EXISTS reminders (id {reminder_id}, user_id TEXT NOT NULL, request TEXT NOT NULL, remind_at TEXT NOT NULL, sent INTEGER DEFAULT 0)")
+        mark = "%s" if DATABASE_URL.startswith(("postgres://", "postgresql://")) else "?"
+        return conn.execute(f"SELECT id,user_id,request FROM reminders WHERE sent=0 AND remind_at <= {mark}", (now,)).fetchall()
+
+
+def mark_reminder_sent(reminder_id: int) -> None:
+    with _db() as conn:
+        mark = "%s" if DATABASE_URL.startswith(("postgres://", "postgresql://")) else "?"
+        conn.execute(f"UPDATE reminders SET sent=1 WHERE id={mark}", (reminder_id,))
+        conn.commit()
+
+
 def create_booking(booking: dict) -> int:
     with _db() as conn:
         if DATABASE_URL.startswith(("postgres://", "postgresql://")):
