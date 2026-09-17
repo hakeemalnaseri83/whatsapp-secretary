@@ -29,7 +29,15 @@ def _preview(booking: dict) -> str:
 
 def _phone(text: str) -> str:
     m = re.search(r"\+?\d[\d\s()-]{7,}\d", text)
-    return re.sub(r"[^\d+]", "", m.group(0)) if m else ""
+    if not m:
+        return ""
+    phone = re.sub(r"[^\d+]", "", m.group(0))
+    # Accept Turkish local mobile format and normalize it for Twilio.
+    if phone.startswith("0") and len(phone) == 11:
+        phone = "+90" + phone[1:]
+    elif phone.startswith("90") and len(phone) == 12:
+        phone = "+" + phone
+    return phone
 
 
 def handle(sender: str, text: str) -> str | None:
@@ -45,11 +53,12 @@ def handle(sender: str, text: str) -> str | None:
         if any(word in low for word in ("إلغاء", "الغاء", "cancel")):
             _pending.pop(sender, None)
             return "تم إلغاء طلب الحجز."
+        phone = _phone(text)
+        if phone:
+            booking["restaurant_phone"] = phone
+            return _preview(booking)
         if not booking.get("restaurant_phone"):
-            phone = _phone(text)
-            if phone:
-                booking["restaurant_phone"] = phone
-                return _preview(booking)
+            return "لإكمال الحجز أرسل رقم هاتف المطعم، أو اكتب إلغاء."
         return "لإكمال الحجز أرسل رقم هاتف المطعم، أو اكتب إلغاء."
 
     booking_words = (
