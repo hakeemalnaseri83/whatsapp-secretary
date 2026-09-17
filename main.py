@@ -29,6 +29,7 @@ from llm import generate_reply
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="AI Voice Assistant (Twilio)")
 _booking_calls: dict[str, dict] = {}
+_WHAPI_BASES = ("https://api.whapi.cloud", "https://gate.whapi.cloud", "https://whapi.cloud")
 
 async def _verified_request(req: Request) -> None:
     secret = CONFIG.twilio_webhook_secret
@@ -79,17 +80,22 @@ def _notify_owner_whatsapp(call_sid: str, caller: str, transcript: str) -> None:
         f"النص: {transcript}\n"
         f"معرّف المكالمة: {call_sid or 'غير متوفر'}"
     )
-    try:
-        r = httpx.post(
-            "https://gate.whapi.cloud/messages/text",
-            headers={"Authorization": f"Bearer {CONFIG.whapi_token}"},
-            json={"to": CONFIG.owner_whatsapp_number, "body": body},
-            timeout=20,
-        )
-        r.raise_for_status()
-        logging.info("owner notification sent via WhatsApp")
-    except Exception as e:
-        logging.warning("owner WhatsApp notification failed: %s", e)
+    last_error = None
+    for base in _WHAPI_BASES:
+        try:
+            r = httpx.post(
+                f"{base}/messages/text",
+                headers={"Authorization": f"Bearer {CONFIG.whapi_token}"},
+                json={"to": CONFIG.owner_whatsapp_number, "body": body},
+                timeout=25,
+            )
+            if r.status_code < 300:
+                logging.info("owner notification sent via WhatsApp using %s", base)
+                return
+            last_error = f"HTTP {r.status_code}: {r.text[:160]}"
+        except Exception as e:
+            last_error = str(e)
+    logging.warning("owner WhatsApp notification failed: %s", last_error)
 
 def start_booking_call(booking: dict) -> str:
     if not CONFIG.twilio_account_sid or not CONFIG.twilio_auth_token or not CONFIG.twilio_from_number:
