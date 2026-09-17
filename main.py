@@ -15,6 +15,9 @@ import logging
 import time
 import hmac
 import httpx
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+from apscheduler.schedulers.background import BackgroundScheduler
 from uuid import uuid4
 from twilio.rest import Client
 
@@ -32,6 +35,7 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="AI Voice Assistant (Twilio)")
 _booking_calls: dict[str, dict] = {}
 _WHAPI_BASES = ("https://api.whapi.cloud", "https://gate.whapi.cloud", "https://whapi.cloud")
+_reminders: list[dict] = []
 
 
 def _booking_result_status(result: str) -> str:
@@ -41,6 +45,38 @@ def _booking_result_status(result: str) -> str:
     if any(word in text for word in ("تم الحجز", "تم التأكيد", "متاح", "أكد", "confirmed", "available")):
         return "confirmed"
     return "needs_review"
+
+
+def _schedule_reminder(booking: dict) -> None:
+    details = booking.get("details", {})
+    if details.get("date") not in ("اليوم", "غداً") or not details.get("time"):
+        logging.info("reminder skipped: date or time was not understood")
+        return
+    match = __import__("re").search(r"(\d{1,2})(?::(\d{2}))?", details["time"])
+    if not match:
+        return
+    hour, minute = int(match.group(1)), int(match.group(2) or 0)
+    if "مساء" in details["time"] and hour < 12:
+        hour += 12
+    now = datetime.now(ZoneInfo("Europe/Istanbul"))
+    day = now.date() + timedelta(days=1 if details["date"] == "غداً" else 0)
+    reminder_at = datetime.combine(day, datetime.min.time(), ZoneInfo("Europe/Istanbul")).replace(hour=hour, minute=minute) - timedelta(hours=2)
+    _reminders.append({"at": reminder_at, "owner": booking.get("owner", ""), "request": booking.get("request", "")})
+
+
+def _send_due_reminders() -> None:
+    now = datetime.now(ZoneInfo("Europe/Istanbul"))
+    due = [r for r in _reminders if r["at"] <= now]
+    for reminder in due:
+        _notify_owner_whatsapp("reminder", reminder["owner"],
+                               f"تذكير: موعد الحجز بعد ساعتين.\nالطلب: {reminder['request']}",
+                               heading="تذكير الحجز")
+        _reminders.remove(reminder)
+
+
+_scheduler = BackgroundScheduler(daemon=True)
+_scheduler.add_job(_send_due_reminders, "interval", minutes=1)
+_scheduler.start()
 
 async def _verified_request(req: Request) -> None:
     secret = CONFIG.twilio_webhook_secret
@@ -126,6 +162,7 @@ def start_booking_call(booking: dict) -> str:
         status_callback=f"{CONFIG.public_base_url}/booking/status?booking_id={booking_id}",
         status_callback_method="POST",
         status_callback_event=["completed"])
+    _schedule_reminder(booking)
     return booking_id
 
 @app.post("/booking/voice")
