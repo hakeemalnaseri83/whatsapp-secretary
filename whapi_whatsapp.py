@@ -262,6 +262,7 @@ async def webhook(req: Request) -> dict:
 async def health() -> dict:
     return {"status": "ok", "llm": CONFIG.ai_provider if CONFIG.has_llm else "offline",
             "voice_replies": CONFIG.voice_replies, "whapi": bool(CONFIG.whapi_token),
+            "booking_flow": "phone-details-preview-v2",
             "webhook_verification": bool(CONFIG.whapi_webhook_secret)}
 
 
