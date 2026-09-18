@@ -28,7 +28,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 
 from config import CONFIG
 from booking import normalize_phone
-from llm import generate_reply
+from llm import generate_reply, generate_booking_reply
 from profile import get_profile
 from store import update_booking, create_reminder, due_reminders, mark_reminder_sent
 
@@ -227,6 +227,28 @@ async def booking_respond(req: Request) -> Response:
     booking = _booking_calls.get(booking_id)
     form = await req.form()
     result = (form.get("SpeechResult") or "لم تصل نتيجة واضحة من المطعم.").strip()
+    if booking and result != "لم تصل نتيجة واضحة من المطعم.":
+        reply, conversation_status = generate_booking_reply(result, booking)
+        conversation = booking.setdefault("conversation", [])
+        conversation.append({"restaurant": result, "assistant": reply})
+        booking["_conversation_status"] = conversation_status
+        if conversation_status == "continue" and len(conversation) < 4:
+            _booking_calls[booking_id] = booking
+            answer = VoiceResponse()
+            answer.say(reply, voice=_voice_name())
+            gather = Gather(input="speech", timeout="10", speechTimeout="auto",
+                            speechModel="phone_call", language="ar-SA",
+                            hints="نعم، لا، متاح، غير متاح، الاسم، التاريخ، الساعة، العدد، بديل",
+                            action=f"/booking/respond?booking_id={booking_id}&followup=1",
+                            method="POST")
+            answer.append(gather)
+            answer.say("لم تصل إجابة أخرى. سأرسل المحادثة للمراجعة.", voice=_voice_name())
+            answer.hangup()
+            return Response(answer.to_xml(), media_type="text/xml")
+        if conversation_status == "confirmed":
+            result = "تم التأكيد: " + result
+        elif conversation_status == "not_available":
+            result = "غير متاح: " + result
     if booking and any(word in result.casefold() for word in ("اسم", "باسم", "مين", "who")):
         profile = booking.get("profile", {})
         customer_name = profile.get("name", "").strip() or "صاحب هذا الرقم"
@@ -266,7 +288,7 @@ async def booking_respond(req: Request) -> Response:
 
     booking = _booking_calls.pop(booking_id, None)
     if booking:
-        status = _booking_result_status(result)
+        status = booking.get("_conversation_status") or _booking_result_status(result)
         if booking.get("operation") == "cancel" and status == "confirmed":
             status = "canceled"
         update_booking(str(booking.get("history_id", "")), status, result)

@@ -4,6 +4,7 @@ Supports OpenAI (gpt-4o-mini) and Google Gemini (gemini-2.0-flash),
 selected via AI_PROVIDER in .env. Always responds in the configured language
 with the configured tone.
 """
+import json
 import logging
 
 import httpx
@@ -44,6 +45,53 @@ def generate_reply(caller_transcript: str, caller_number: str) -> str:
 
     if not CONFIG.has_llm:
         return fallback
+
+
+def generate_booking_reply(transcript: str, booking: dict) -> tuple[str, str]:
+    """Reply naturally during a restaurant call.
+
+    Returns (spoken_reply, status), where status is continue, confirmed,
+    not_available, or needs_review. The model may answer only from booking
+    facts and must never invent availability.
+    """
+    details = booking.get("details", {})
+    facts = {
+        "name": booking.get("profile", {}).get("name") or "صاحب هذا الرقم",
+        "date": details.get("date", "غير محدد"),
+        "time": details.get("time", "غير محدد"),
+        "people": details.get("people", "غير محدد"),
+        "request": details.get("request", booking.get("request", "حجز طاولة")),
+    }
+    low = transcript.casefold()
+    if any(word in low for word in ("غير متاح", "لا يوجد", "ممتلئ", "مرفوض", "لا يمكن", "not available")):
+        return "شكرًا للتوضيح. سأبلغ صاحب الطلب بأن الموعد غير متاح.", "not_available"
+    if any(word in low for word in ("تم الحجز", "تم التأكيد", "متاح", "مؤكد", "confirmed", "available")):
+        return "شكرًا، سجّلت أن الموعد متاح وتم تأكيد الحجز.", "confirmed"
+
+    fallback = (f"اسم الحجز {facts['name']}. التفاصيل: {facts['date']}، الساعة {facts['time']}، "
+                f"لعدد {facts['people']} من الأشخاص. ما الخيار المتاح لديكم؟")
+    if not CONFIG.has_llm:
+        return fallback, "continue"
+    system = (
+        "أنت موظف حجوزات يتحدث العربية في مكالمة هاتفية طبيعية. "
+        "أجب باختصار وبأدب عن سؤال المطعم مستخدماً الحقائق فقط. "
+        "يمكنك مناقشة الاسم والتاريخ والوقت وعدد الأشخاص والبدائل والملاحظات. "
+        "لا تخترع توفرًا أو سعرًا. إذا قال المطعم إن الموعد متاح أو أكد الحجز، status=confirmed. "
+        "إذا قال غير متاح، status=not_available. وإلا status=continue. "
+        "أعد JSON فقط بالشكل: {\"reply\":\"...\",\"status\":\"continue|confirmed|not_available\"}."
+    )
+    user = json.dumps({"facts": facts, "restaurant_said": transcript,
+                       "history": booking.get("conversation", [])[-4:]}, ensure_ascii=False)
+    try:
+        text = _gemini(system, user) if CONFIG.ai_provider == "gemini" else _openai(system, user)
+        data = json.loads(text.strip().removeprefix("```json").removesuffix("```").strip())
+        reply = str(data.get("reply", "")).strip()
+        status = str(data.get("status", "continue")).strip()
+        if reply and status in {"continue", "confirmed", "not_available"}:
+            return reply, status
+    except Exception as e:
+        logging.warning("booking conversation reply failed: %r", e)
+    return fallback, "continue"
 
     try:
         user_msg = (
