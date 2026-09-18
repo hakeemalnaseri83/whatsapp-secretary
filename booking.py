@@ -69,6 +69,10 @@ def _phone(text: str) -> str:
         phone = "+90" + phone[1:]
     elif phone.startswith("90") and len(phone) == 12:
         phone = "+" + phone
+    if phone.startswith("+") and not (phone.startswith("+90") and len(phone) == 13):
+        return ""
+    if phone.startswith("0") and len(phone) != 11:
+        return ""
     return phone
 
 
@@ -91,7 +95,9 @@ def handle(sender: str, text: str) -> str | None:
             _pending.pop(sender, None)
             return "تم إلغاء طلب الحجز."
         phone = _phone(text)
-        if phone and not booking.get("restaurant_phone"):
+        if phone:
+            # A corrected number must replace the previous value; otherwise a
+            # stale number can be reused at confirmation time.
             booking["restaurant_phone"] = phone
         details = booking.setdefault("details", {})
         incoming = _details(text)
