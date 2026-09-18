@@ -222,9 +222,30 @@ async def booking_voice(req: Request) -> Response:
 @app.post("/booking/respond")
 async def booking_respond(req: Request) -> Response:
     booking_id = req.query_params.get("booking_id", "")
-    booking = _booking_calls.pop(booking_id, None)
+    followup = req.query_params.get("followup", "0") == "1"
+    booking = _booking_calls.get(booking_id)
     form = await req.form()
     result = (form.get("SpeechResult") or "لم تصل نتيجة واضحة من المطعم.").strip()
+    if booking and not followup and _booking_result_status(result) == "needs_review":
+        details = booking.get("details", {})
+        _booking_calls[booking_id] = booking
+        retry = VoiceResponse()
+        retry.say(
+            f"سمعت: {result}. للتوضيح، الطلب بتاريخ {details.get('date', 'غير محدد')}، "
+            f"الساعة {details.get('time', 'غير محدد')}، لعدد {details.get('people', 'غير محدد')} من الأشخاص. "
+            "هل الموعد متاح؟ أجب بنعم أو لا.",
+            voice=_voice_name())
+        gather = Gather(input="speech", timeout="10", speechTimeout="auto",
+                        speechModel="phone_call", language="ar-SA",
+                        hints="نعم، لا، متاح، غير متاح، مؤكد، ممتلئ",
+                        action=f"/booking/respond?booking_id={booking_id}&followup=1",
+                        method="POST")
+        retry.append(gather)
+        retry.say("لم تصل إجابة واضحة. سأرسل النتيجة للمراجعة.", voice=_voice_name())
+        retry.hangup()
+        return Response(retry.to_xml(), media_type="text/xml")
+
+    booking = _booking_calls.pop(booking_id, None)
     if booking:
         status = _booking_result_status(result)
         if booking.get("operation") == "cancel" and status == "confirmed":
