@@ -1,6 +1,6 @@
 """Small, safe first-stage restaurant booking workflow."""
 import re
-from profile import get_profile
+from profile import get_profile, update_profile
 from store import create_booking
 
 _pending: dict[str, dict] = {}
@@ -89,11 +89,26 @@ def handle(sender: str, text: str) -> str | None:
         if any(word in low for word in ("أؤكد", "اؤكد", "اكد", "أوافق", "اوافق", "confirm", "نعم")):
             if not booking.get("restaurant_phone"):
                 return "ممتاز. أرسل رقم هاتف المطعم بصيغة دولية لأجهّز الاتصال بعد تأكيدك النهائي."
+            profile = booking.get("profile") or get_profile(sender)
+            if not profile.get("name"):
+                booking["awaiting_name"] = True
+                return "قبل الاتصال، أرسل اسم صاحب الحجز. يمكنك كتابة: اسمي حكيم"
+            booking["profile"] = profile
             booking["confirmed"] = True
             return "تم استلام موافقتك. سأحاول الاتصال بالمطعم الآن، وسأرسل لك نتيجة المطعم بعد المكالمة."
         if any(word in low for word in ("إلغاء", "الغاء", "cancel")):
             _pending.pop(sender, None)
             return "تم إلغاء طلب الحجز."
+        if booking.get("awaiting_name"):
+            name = text.strip()
+            if name.casefold().startswith("اسمي"):
+                name = name[4:].strip(" :،")
+            if len(name) < 2:
+                return "أرسل اسمًا واضحًا ليُسجّل عليه الحجز."
+            booking["profile"] = update_profile(sender, name=name)
+            booking["awaiting_name"] = False
+            booking["confirmed"] = True
+            return f"تم حفظ اسم الحجز: {name}. سأحاول الاتصال بالمطعم الآن وأرسل لك النتيجة."
         phone = _phone(text)
         if phone:
             # A corrected number must replace the previous value; otherwise a
