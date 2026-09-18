@@ -117,6 +117,14 @@ def _text_of(msg: dict) -> str:
     return (str(tb) if tb else "").strip()
 
 
+def _sender_of(msg: dict) -> str:
+    raw = str(msg.get("chat_id") or msg.get("from") or "").strip()
+    for prefix in ("whatsapp:", "wa:"):
+        if raw.lower().startswith(prefix):
+            raw = raw[len(prefix):]
+    return raw.split("@", 1)[0].strip()
+
+
 def _profile_command(sender: str, text: str) -> str | None:
     import re
     patterns = {
@@ -165,8 +173,7 @@ def _handle_message(msg: dict) -> None:
     if msg.get("from_me"):
         return  # skip our own outbound confirmations
     typ = msg.get("type") or ""
-    sender = msg.get("from") or (msg.get("chat_id") or "").split("@")[0]
-    sender = (sender or "").strip()
+    sender = _sender_of(msg)
     if not sender:
         logging.info("message without sender; skipping")
         return

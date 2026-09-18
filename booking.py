@@ -9,7 +9,7 @@ _pending: dict[str, dict] = {}
 def _details(text: str) -> dict:
     details: dict = {}
     people = re.search(r"(?:ل|عدد\s*)?\s*(\d{1,2})\s*(?:شخص|أشخاص|اشخاص|person|people)", text, re.I)
-    time = re.search(r"(?:الساعة|الساعة\s*)?\s*(\d{1,2}(?::\d{2})?)\s*(صباحاً|مساءً|مساء|am|pm)?", text, re.I)
+    time = re.search(r"(?:الساعة|ساعة)\s*(\d{1,2}(?::\d{2})?)\s*(صباحاً|مساءً|مساء|am|pm)?", text, re.I)
     if people:
         details["people"] = people.group(1)
     else:
@@ -24,10 +24,16 @@ def _details(text: str) -> dict:
                 break
     if time and any(x in text.casefold() for x in ("ساعة", "الساعة", "am", "pm", "مساء", "صباح")):
         details["time"] = " ".join(x for x in time.groups() if x)
+    if "الساعة" in text and "التاسعة" in text:
+        details["time"] = "9 مساءً" if any(x in text for x in ("ليلاً", "مساء", "مساءً")) else "9"
     if "غدا" in text or "غداً" in text:
         details["date"] = "غداً"
     elif "اليوم" in text:
         details["date"] = "اليوم"
+    else:
+        date = re.search(r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b", text)
+        if date:
+            details["date"] = date.group(1)
     details["request"] = text
     return details
 
@@ -51,6 +57,7 @@ def _missing(details: dict) -> list[str]:
 
 
 def _phone(text: str) -> str:
+    text = text.translate(str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789"))
     m = re.search(r"\+?\d[\d\s()-]{7,}\d", text)
     if not m:
         return ""
@@ -79,20 +86,17 @@ def handle(sender: str, text: str) -> str | None:
             _pending.pop(sender, None)
             return "تم إلغاء طلب الحجز."
         phone = _phone(text)
-        if phone:
+        if phone and not booking.get("restaurant_phone"):
             booking["restaurant_phone"] = phone
-            missing = _missing(booking.get("details", {}))
-            if missing:
-                return "أرسل من فضلك: " + "، ".join(missing) + "، ثم سأعرض المعاينة."
+        details = booking.setdefault("details", {})
+        incoming = _details(text)
+        details.update({k: v for k, v in incoming.items() if k != "request"})
+        missing = _missing(details)
+        if booking.get("restaurant_phone") and not missing:
             return _preview(booking)
+        if missing:
+            return "أرسل من فضلك: " + "، ".join(missing) + "، ثم سأعرض المعاينة."
         if not booking.get("restaurant_phone"):
-            details = booking.setdefault("details", {})
-            details.update({k: v for k, v in _details(text).items() if k != "request"})
-            missing = _missing(details)
-            if missing:
-                return "لإكمال الحجز أرسل: " + "، ".join(missing) + "، أو اكتب إلغاء."
-            if booking.get("restaurant_phone"):
-                return _preview(booking)
             return "أرسل رقم هاتف المطعم، أو اكتب إلغاء."
         return "لإكمال الحجز أرسل رقم هاتف المطعم، أو اكتب إلغاء."
 
