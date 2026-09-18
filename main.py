@@ -191,11 +191,22 @@ async def booking_voice(req: Request) -> Response:
                     speechModel="phone_call", language="ar-SA",
                     hints="نعم، لا، متاح، غير متاح، الساعة، غداً، اليوم، شخص، أشخاص، حجز، تأكيد",
                     action=f"/booking/respond?booking_id={booking_id}", method="POST")
-    request = booking.get("details", {}).get("request", booking.get("request", "حجز طاولة"))
+    details = booking.get("details", {})
+    request = details.get("request", booking.get("request", "حجز طاولة"))
+    date = details.get("date", "غير محدد")
+    time = details.get("time", "غير محدد")
+    people = details.get("people", "غير محدد")
     profile = booking.get("profile", {})
     customer = f" واسمه {profile['name']}" if profile.get("name") else ""
-    action = "إلغاء الحجز" if booking.get("operation") == "cancel" else f"طلب {request}"
-    gather.say(f"مرحباً، أتصل نيابة عن عميل{customer} بخصوص {action}. هل يمكنكم تأكيد الإجراء وذكر التفاصيل؟", voice=_voice_name())
+    if booking.get("operation") == "cancel":
+        action = "إلغاء الحجز"
+    else:
+        action = (f"حجز طاولة بتاريخ {date}، الساعة {time}، لعدد {people} من الأشخاص. "
+                  f"الطلب الأصلي: {request}")
+    gather.say(
+        f"مرحباً، أتصل نيابة عن عميل{customer}. أريد {action}. "
+        "هل هذا الموعد متاح؟ أرجو الإجابة بوضوح: نعم أو لا، وذكر أي ملاحظة.",
+        voice=_voice_name())
     resp.append(gather)
     resp.say("شكراً لكم. سأبلغ صاحب الطلب.", voice=_voice_name())
     resp.hangup()

@@ -90,7 +90,7 @@ def handle(sender: str, text: str) -> str | None:
             if not booking.get("restaurant_phone"):
                 return "ممتاز. أرسل رقم هاتف المطعم بصيغة دولية لأجهّز الاتصال بعد تأكيدك النهائي."
             booking["confirmed"] = True
-            return "تم تأكيد الطلب. سأبدأ الاتصال بالمطعم وأرسل لك النتيجة بعد انتهاء المكالمة."
+            return "تم استلام موافقتك. سأحاول الاتصال بالمطعم الآن، وسأرسل لك نتيجة المطعم بعد المكالمة."
         if any(word in low for word in ("إلغاء", "الغاء", "cancel")):
             _pending.pop(sender, None)
             return "تم إلغاء طلب الحجز."
