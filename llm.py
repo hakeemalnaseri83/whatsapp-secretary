@@ -65,7 +65,7 @@ def generate_booking_reply(transcript: str, booking: dict) -> tuple[str, str]:
     low = transcript.casefold()
     if any(word in low for word in ("غير متاح", "لا يوجد", "ممتلئ", "مرفوض", "لا يمكن", "not available")):
         return "شكرًا للتوضيح. سأبلغ صاحب الطلب بأن الموعد غير متاح.", "not_available"
-    if any(word in low for word in ("تم الحجز", "تم التأكيد", "متاح", "مؤكد", "confirmed", "available")):
+    if any(word in low for word in ("تم الحجز", "تم التأكيد", "مؤكد", "نعم متاح", "نعم، متاح", "متاح لدينا", "available")):
         return "شكرًا، سجّلت أن الموعد متاح وتم تأكيد الحجز.", "confirmed"
 
     fallback = (f"اسم الحجز {facts['name']}. التفاصيل: {facts['date']}، الساعة {facts['time']}، "
