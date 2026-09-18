@@ -198,11 +198,12 @@ async def booking_voice(req: Request) -> Response:
     time = details.get("time", "غير محدد")
     people = details.get("people", "غير محدد")
     profile = booking.get("profile", {})
-    customer = f" واسمه {profile['name']}" if profile.get("name") else ""
+    customer_name = profile.get("name", "").strip() or "صاحب هذا الرقم"
+    customer = f" واسم صاحب الحجز هو {customer_name}"
     if booking.get("operation") == "cancel":
         action = "إلغاء الحجز"
     else:
-        action = (f"حجز طاولة بتاريخ {date}، الساعة {time}، لعدد {people} من الأشخاص. "
+        action = (f"حجز طاولة باسم {customer_name}، بتاريخ {date}، الساعة {time}، لعدد {people} من الأشخاص. "
                   f"الطلب الأصلي: {request}")
     gather.say(
         f"مرحباً، أتصل نيابة عن عميل{customer}. أريد {action}. "
@@ -226,6 +227,24 @@ async def booking_respond(req: Request) -> Response:
     booking = _booking_calls.get(booking_id)
     form = await req.form()
     result = (form.get("SpeechResult") or "لم تصل نتيجة واضحة من المطعم.").strip()
+    if booking and any(word in result.casefold() for word in ("اسم", "باسم", "مين", "who")):
+        profile = booking.get("profile", {})
+        customer_name = profile.get("name", "").strip() or "صاحب هذا الرقم"
+        _booking_calls[booking_id] = booking
+        answer = VoiceResponse()
+        answer.say(
+            f"اسم الحجز هو {customer_name}. والتفاصيل: التاريخ {booking.get('details', {}).get('date', 'غير محدد')}، "
+            f"الساعة {booking.get('details', {}).get('time', 'غير محدد')}، لعدد {booking.get('details', {}).get('people', 'غير محدد')} من الأشخاص. "
+            "هل الموعد متاح؟ أجيبوا بنعم أو لا.", voice=_voice_name())
+        gather = Gather(input="speech", timeout="10", speechTimeout="auto",
+                        speechModel="phone_call", language="ar-SA",
+                        hints="نعم، لا، متاح، غير متاح، مؤكد، ممتلئ",
+                        action=f"/booking/respond?booking_id={booking_id}&followup=1",
+                        method="POST")
+        answer.append(gather)
+        answer.say("لم تصل إجابة واضحة. سأرسل النتيجة للمراجعة.", voice=_voice_name())
+        answer.hangup()
+        return Response(answer.to_xml(), media_type="text/xml")
     if booking and not followup and _booking_result_status(result) == "needs_review":
         details = booking.get("details", {})
         _booking_calls[booking_id] = booking
