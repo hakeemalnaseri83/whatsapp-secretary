@@ -27,6 +27,7 @@ from twilio.twiml.voice_response import VoiceResponse, Gather, Say, Hangup
 from twilio.twiml.messaging_response import MessagingResponse
 
 from config import CONFIG
+from booking import normalize_phone
 from llm import generate_reply
 from profile import get_profile
 from store import update_booking, create_reminder, due_reminders, mark_reminder_sent
@@ -165,10 +166,14 @@ def _notify_owner_whatsapp(call_sid: str, caller: str, transcript: str,
 def start_booking_call(booking: dict) -> str:
     if not CONFIG.twilio_account_sid or not CONFIG.twilio_auth_token or not CONFIG.twilio_from_number:
         raise RuntimeError("Twilio credentials or caller number are not configured")
+    phone = normalize_phone(booking.get("restaurant_phone", ""))
+    if not phone or not phone.startswith("+"):
+        raise RuntimeError("رقم المطعم غير صالح. أرسله بصيغة دولية مثل +905356041588")
+    booking["restaurant_phone"] = phone
     booking_id = uuid4().hex
     _booking_calls[booking_id] = booking
     Client(CONFIG.twilio_account_sid, CONFIG.twilio_auth_token).calls.create(
-        to=booking["restaurant_phone"], from_=CONFIG.twilio_from_number,
+        to=phone, from_=CONFIG.twilio_from_number,
         url=f"{CONFIG.public_base_url}/booking/voice?booking_id={booking_id}", method="POST",
         status_callback=f"{CONFIG.public_base_url}/booking/status?booking_id={booking_id}",
         status_callback_method="POST",

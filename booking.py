@@ -72,6 +72,11 @@ def _phone(text: str) -> str:
     return phone
 
 
+def normalize_phone(value: str) -> str:
+    """Normalize a saved or newly entered number before sending it to Twilio."""
+    return _phone(str(value))
+
+
 def handle(sender: str, text: str) -> str | None:
     """Return a workflow response, or None when this is not a booking request."""
     low = text.casefold().replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")

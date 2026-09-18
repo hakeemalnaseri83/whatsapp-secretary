@@ -200,7 +200,9 @@ def _handle_message(msg: dict) -> None:
                     error_code = getattr(e, "code", None)
                     if error_code:
                         logging.warning("Twilio error code: %s", error_code)
-                    if str(error_code) == "21219" or "21219" in error_text or "verified" in error_text.lower():
+                    if str(error_code) == "21211" or "21211" in error_text:
+                        _send_text(sender, "لم يبدأ الاتصال: رقم المطعم غير صالح لدى Twilio. أرسل الرقم بصيغة دولية مثل +905356041588.")
+                    elif str(error_code) == "21219" or "21219" in error_text or "verified" in error_text.lower():
                         _send_text(sender, "لم يبدأ الاتصال: حساب Twilio التجريبي يسمح بالاتصال بالأرقام الموثّقة فقط. لم يتم أي حجز. يرجى ترقية الحساب أو اختبار رقم موثّق.")
                     else:
                         detail = f" رمز Twilio: {error_code}." if error_code else " راجع سجل Render لمعرفة السبب."
