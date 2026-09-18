@@ -186,6 +186,7 @@ async def booking_voice(req: Request) -> Response:
     if booking_id not in _booking_calls:
         return Response("<Response><Say>Booking unavailable.</Say><Hangup/></Response>", media_type="text/xml")
     booking = _booking_calls[booking_id]
+    retry = req.query_params.get("retry", "0") == "1"
     resp = VoiceResponse()
     gather = Gather(input="speech", timeout="8", speechTimeout="auto",
                     speechModel="phone_call", language="ar-SA",
@@ -208,8 +209,14 @@ async def booking_voice(req: Request) -> Response:
         "هل هذا الموعد متاح؟ أرجو الإجابة بوضوح: نعم أو لا، وذكر أي ملاحظة.",
         voice=_voice_name())
     resp.append(gather)
-    resp.say("شكراً لكم. سأبلغ صاحب الطلب.", voice=_voice_name())
-    resp.hangup()
+    if not retry:
+        # Do not treat silence as a successful booking. Give the restaurant
+        # one additional chance to answer before ending the call.
+        resp.say("لم أسمع إجابة. سأعيد السؤال مرة واحدة.", voice=_voice_name())
+        resp.redirect(f"/booking/voice?booking_id={booking_id}&retry=1", method="POST")
+    else:
+        resp.say("لم تصل إجابة واضحة من المطعم. سأبلغ صاحب الطلب للمراجعة.", voice=_voice_name())
+        resp.hangup()
     return Response(resp.to_xml(), media_type="text/xml")
 
 @app.post("/booking/respond")
